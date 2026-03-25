@@ -1,0 +1,19 @@
+{
+  "name": "asisteme-cli",
+  "version": "1.2.2",
+  "description": "Plantilla global inicializadora de agentes de Antigravity",
+  "type": "module",
+  "bin": {
+    "asisteme-cli": "bin/cli.js"
+  },
+  "files": [
+    "bin"
+  ],
+  "dependencies": {
+    "@clack/prompts": "^1.1.0",
+    "fs-extra": "^11.3.4",
+    "giget": "^3.1.2",
+    "gradient-string": "^3.0.0",
+    "picocolors": "^1.1.1"
+  }
+}
