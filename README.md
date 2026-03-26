@@ -11,17 +11,17 @@ La forma más recomendada y rápida de utilizar este CLI es mediante `npx`, ejec
 Para lanzar el asistente interactivo, que te dejará elegir entre instalar por primera vez o actualizar el entorno existente:
 
 ```bash
-npx @fernandoitur/asisteme-cli
+npx @asistemeai/asisteme-cli
 ```
 
-*- También puedes instalarlo globalmente en tu máquina si lo prefieres (`npm install -g @fernandoitur/asisteme-cli`) y usar simplemente el comando `asisteme-cli`.*
+*- También puedes instalarlo globalmente en tu máquina si lo prefieres (`npm install -g @asistemeai/asisteme-cli`) y usar simplemente el comando `asisteme-cli`.*
 
 ### Iniciar o Actualizar Directamente
 
 Si ya tienes una carpeta `.agent` inicializada en el proyecto actual y quieres sobreescribirla de manera forzada con tu plantilla base más reciente, usa el argumento update:
 
 ```bash
-npx @fernandoitur/asisteme-cli update
+npx @asistemeai/asisteme-cli update
 ```
 
 > **Aviso de Seguridad:** Una vez que ejecutes una actualización de la plantilla base en un proyecto existente, es recomendable usar `git diff` y `git status` para comprobar si se ha sobreescrito alguna configuración particular que habías definido temporalmente en ese proyecto.
