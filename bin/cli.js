@@ -7,11 +7,14 @@ import pc from 'picocolors';
 
 // Obtenemos la ruta donde está instalado globalmente este paquete
 import { downloadTemplate } from 'giget';
+import axios from 'axios';
+import AdmZip from 'adm-zip';
 
 import gradient from 'gradient-string';
 import { startGitSyncWizard } from './git-sync.js';
 
-// Configuración del repositorio central (Usuario/Repositorio)
+// Configuración de la nube de activos
+const MINIO_BASE_URL = 'https://s3.asisteme.ai/asisteme-agents-skills';
 const REPO_BASE = 'fernandoiturriza/asisteme-cli';
 
 // Diseño de Banner ASCII
@@ -28,6 +31,26 @@ const BANNER_ART = `
 
 const agkitGradient = gradient(['#4FACFE', '#00F2FE', '#007BFD']);
 const divider = pc.dim(' —————————————————————————————————————————————————————————————————');
+
+async function downloadAndExtract(url, targetDir, label = 'Descargando') {
+  const s = spinner();
+  s.start(label);
+  try {
+    const response = await axios({
+      url,
+      method: 'GET',
+      responseType: 'arraybuffer'
+    });
+    
+    fs.ensureDirSync(targetDir);
+    const zip = new AdmZip(Buffer.from(response.data));
+    zip.extractAllTo(targetDir, true);
+    s.stop('¡Descarga y extracción completada!');
+  } catch (err) {
+    s.stop('Error en la descarga');
+    throw new Error(`No se pudo descargar desde ${url}: ${err.message}`);
+  }
+}
 
 async function main() {
   console.clear();
@@ -87,23 +110,30 @@ async function executeAction(action) {
       return; // Volvemos al bucle principal
     }
 
-    s.start('Descargando entorno de agentes desde GitHub...');
+    s.start('Descargando entorno de agentes...');
     try {
-      await downloadTemplate(`github:${REPO_BASE}/.agent`, {
-        dir: targetAgentPath,
-        force: true,
-        preferOffline: false,
-      });
-      s.stop('¡Plantilla descargada con éxito!');
-
+      // Intentamos primero MinIO (más rápido y zip)
+      await downloadAndExtract(`${MINIO_BASE_URL}/agent.zip`, targetAgentPath, 'Sincronizando desde la nube central...');
+      
       // Llamada al recolector de contexto interactivo
       await collectProjectContext(targetAgentPath);
 
       outro(pc.green('🚀 Todo listo. ¡Tus agentes ya están disponibles en este repositorio!'));
     } catch (err) {
-      s.stop('Error descargando archivos');
-      cancel(pc.red(`No se pudo conectar con el repositorio o la carpeta no existe: ${err.message}`));
-      process.exit(1);
+      s.stop('MinIO falló, intentando fallback de GitHub...');
+      try {
+        await downloadTemplate(`github:${REPO_BASE}/.agent`, {
+            dir: targetAgentPath,
+            force: true,
+            preferOffline: false,
+        });
+        s.stop('¡Plantilla descargada desde GitHub (fallback)!');
+        await collectProjectContext(targetAgentPath);
+        outro(pc.green('🚀 Todo listo. (Vía GitHub)'));
+      } catch (githubErr) {
+        cancel(pc.red(`Error fatal: No se pudo conectar con ninguna fuente. ${githubErr.message}`));
+        process.exit(1);
+      }
     }
   } else if (action === 'update') {
     if (!fs.existsSync(targetAgentPath)) {
@@ -111,20 +141,26 @@ async function executeAction(action) {
       process.exit(1);
     }
 
-    s.start('Actualizando entorno de agentes desde la nube...');
+    s.start('Actualizando entorno de agentes...');
     try {
-      await downloadTemplate(`github:${REPO_BASE}/.agent`, {
-        dir: targetAgentPath,
-        force: true,
-        preferOffline: false,
-      });
+      await downloadAndExtract(`${MINIO_BASE_URL}/agent.zip`, targetAgentPath, 'Sincronizando actualizaciones desde la nube...');
       s.stop('¡Entorno actualizado!');
-      note('Se han sobrescrito los archivos base del entorno .agent con la última versión de GitHub.', 'Aviso');
+      note('Se han sobrescrito los archivos base del entorno .agent con la última versión de la nube.', 'Aviso');
       outro(pc.green('🚀 Actualización completada satisfactoriamente.'));
     } catch (err) {
-      s.stop('Error en la actualización');
-      cancel(pc.red(err.message));
-      process.exit(1);
+      s.stop('MinIO falló, intentando actualizar desde GitHub...');
+      try {
+        await downloadTemplate(`github:${REPO_BASE}/.agent`, {
+            dir: targetAgentPath,
+            force: true,
+            preferOffline: false,
+        });
+        s.stop('¡Entorno actualizado desde GitHub (fallback)!');
+        outro(pc.green('🚀 Actualización completada.'));
+      } catch (githubErr) {
+        cancel(pc.red(`Error en la actualización: ${githubErr.message}`));
+        process.exit(1);
+      }
     }
   } else if (action === 'skills') {
     // Para los skills, primero descargamos la carpeta masSkills a un directorio temporal
@@ -136,16 +172,21 @@ async function executeAction(action) {
       process.exit(1);
     }
 
-    s.start('Buscando skills disponibles en el repositorio central...');
+    s.start('Sincronizando lista de skills disponibles...');
     try {
-      // Limpiamos temporal previo si existe
       if (fs.existsSync(tempSkillsPath)) fs.removeSync(tempSkillsPath);
-
-      await downloadTemplate(`github:${REPO_BASE}/masSkills`, {
-        dir: tempSkillsPath,
-        force: true,
-        preferOffline: false,
-      });
+      
+      try {
+        // Intentamos MinIO primero
+        await downloadAndExtract(`${MINIO_BASE_URL}/skills.zip`, tempSkillsPath, 'Actualizando catálogo de habilidades...');
+      } catch (minioErr) {
+        s.stop('MinIO falló, intentando desde GitHub...');
+        await downloadTemplate(`github:${REPO_BASE}/masSkills`, {
+          dir: tempSkillsPath,
+          force: true,
+          preferOffline: false,
+        });
+      }
       s.stop('Lista de skills sincronizada.');
 
       const availableSkills = fs.readdirSync(tempSkillsPath)
