@@ -11,9 +11,14 @@
   ],
   "dependencies": {
     "@clack/prompts": "^1.1.0",
+    "adm-zip": "^0.5.16",
+    "axios": "^1.13.6",
     "fs-extra": "^11.3.4",
     "giget": "^3.1.2",
     "gradient-string": "^3.0.0",
-    "picocolors": "^1.1.1"
+    "minio": "^8.0.7",
+    "picocolors": "^1.1.1",
+    "tar": "^7.5.13",
+    "xml2js": "^0.6.2"
   }
 }

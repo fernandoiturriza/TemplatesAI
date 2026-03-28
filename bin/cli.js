@@ -9,6 +9,7 @@ import pc from 'picocolors';
 import { downloadTemplate } from 'giget';
 
 import gradient from 'gradient-string';
+import { startGitSyncWizard } from './git-sync.js';
 
 // Configuración del repositorio central (Usuario/Repositorio)
 const REPO_BASE = 'fernandoiturriza/asisteme-cli';
@@ -38,7 +39,7 @@ async function main() {
   const command = process.argv[2];
 
   // Si se pasa un comando directo por argumento, lo ejecutamos una vez y salimos
-  if (command === 'update' || command === 'skills') {
+  if (command === 'update' || command === 'skills' || command === 'gitsync') {
     await executeAction(command);
     process.exit(0);
   }
@@ -58,6 +59,7 @@ async function main() {
       options.push({ value: 'context', label: '📝  Definir Contexto del Proyecto', hint: 'Configurar tecnologias del proyecto.' });
     }
 
+    options.push({ value: 'gitsync', label: '🛸  Sincronización Git (Wizard)', hint: 'Manejo seguro de ramas y conflictos' });
     options.push({ value: 'cancel', label: '❌  Salir' });
 
     const action = await select({
@@ -190,48 +192,100 @@ async function executeAction(action) {
       process.exit(1);
     }
     await collectProjectContext(targetAgentPath);
+  } else if (action === 'gitsync') {
+    await startGitSyncWizard();
   }
 }
 
 async function collectProjectContext(targetPath) {
   note('Vamos a configurar el contexto inicial de tu proyecto para los agentes de IA.', 'Contexto del Proyecto');
 
-  const frontend = await select({
-    message: '🖥️  ¿Qué Frontend / Framework principal usarás?',
-    options: [
-      { value: 'Next.js (React)', label: 'Next.js (React)' },
-      { value: 'React SPA (Vite)', label: 'React SPA (Vite)' },
-      { value: 'Vue / Nuxt', label: 'Vue / Nuxt' },
-      { value: 'Angular', label: 'Angular' },
-      { value: 'Ninguno (Solo Backend/CLI)', label: 'Ninguno (Solo Backend/CLI)' }
-    ]
+  const projectName = await text({
+    message: '📦 ¿Cómo se va a llamar el proyecto?',
+    initialValue: path.basename(process.cwd()),
+    validate(value) {
+      if (value.length === 0) return 'El nombre es requerido.';
+    }
   });
-  if (isCancel(frontend)) return;
+  if (isCancel(projectName)) return;
 
-  const backend = await select({
-    message: '⚙️  ¿Qué Backend / API usarás?',
-    options: [
-      { value: 'Hono', label: 'Hono (Edge/Node)' },
-      { value: 'Express', label: 'Express / Node.js' },
-      { value: 'NestJS', label: 'NestJS' },
-      { value: 'Next.js API Routes', label: 'Next.js API Routes (Serverless)' },
-      { value: 'Ninguno (Solo Frontend/BaaS)', label: 'Ninguno (Solo Frontend/BaaS)' }
-    ]
+  const colorPrimary = await text({
+    message: '🎨 Color Primario o Brand Color (Hex o variable):',
+    placeholder: '#4FACFE',
+    initialValue: '#4FACFE'
   });
-  if (isCancel(backend)) return;
+  if (isCancel(colorPrimary)) return;
 
-  const database = await select({
-    message: '🗄️  ¿Qué Base de Datos / BaaS usarás?',
+  const colorSecondary = await text({
+    message: '🎨 Color Secundario o Accent Color (Hex o variable):',
+    placeholder: '#00F2FE',
+    initialValue: '#00F2FE'
+  });
+  if (isCancel(colorSecondary)) return;
+
+  const isPremium = await select({
+    message: '🚀 ¿Deseas usar la arquitectura preconfigurada Premium?',
     options: [
-      { value: 'PostgreSQL + Drizzle', label: 'PostgreSQL + Drizzle ORM' },
-      { value: 'PostgreSQL + Prisma', label: 'PostgreSQL + Prisma' },
-      { value: 'InsForge', label: 'InsForge' },
-      { value: 'Supabase / Firebase', label: 'Supabase / Firebase' },
-      { value: 'SQLite local', label: 'SQLite local' },
-      { value: 'Ninguna', label: 'Ninguna' }
+      { value: true, label: 'Sí, usar Premium Next.js + Hono + Drizzle (Stack Asisteme)' },
+      { value: false, label: 'No, prefiero elegir las tecnologías manualmente' }
     ]
   });
-  if (isCancel(database)) return;
+  if (isCancel(isPremium)) return;
+
+  let frontend, backend, database;
+
+  if (isPremium) {
+    frontend = 'Next.js (React) - Premium';
+    backend = 'Hono (Edge/Node) - Premium';
+    database = 'PostgreSQL + Drizzle ORM';
+  } else {
+    frontend = await select({
+      message: '🖥️  ¿Qué Frontend / Framework principal usarás?',
+      options: [
+        { value: 'Next.js (React)', label: 'Next.js (React)' },
+        { value: 'React SPA (Vite)', label: 'React SPA (Vite)' },
+        { value: 'Vue / Nuxt', label: 'Vue / Nuxt' },
+        { value: 'Angular', label: 'Angular' },
+        { value: 'Ninguno (Solo Backend/CLI)', label: 'Ninguno (Solo Backend/CLI)' }
+      ]
+    });
+    if (isCancel(frontend)) return;
+
+    backend = await select({
+      message: '⚙️  ¿Qué Backend / API usarás?',
+      options: [
+        { value: 'Hono', label: 'Hono (Edge/Node)' },
+        { value: 'Express', label: 'Express / Node.js' },
+        { value: 'NestJS', label: 'NestJS' },
+        { value: 'Next.js API Routes', label: 'Next.js API Routes (Serverless)' },
+        { value: 'Ninguno (Solo Frontend/BaaS)', label: 'Ninguno (Solo Frontend/BaaS)' }
+      ]
+    });
+    if (isCancel(backend)) return;
+
+    database = await select({
+      message: '🗄️  ¿Qué Base de Datos / BaaS usarás?',
+      options: [
+        { value: 'Mock Mode (Local JSON)', label: 'Mock Mode (Prototipado Rápido sin DB)' },
+        { value: 'PostgreSQL + Drizzle', label: 'PostgreSQL + Drizzle ORM' },
+        { value: 'PostgreSQL + Prisma', label: 'PostgreSQL + Prisma' },
+        { value: 'InsForge', label: 'InsForge' },
+        { value: 'Supabase / Firebase', label: 'Supabase / Firebase' },
+        { value: 'SQLite local', label: 'SQLite local' },
+        { value: 'Ninguna', label: 'Ninguna' }
+      ]
+    });
+    if (isCancel(database)) return;
+  }
+
+  let dbUrl = '';
+  if (database.includes('PostgreSQL') || database.includes('Supabase')) {
+    dbUrl = await text({
+      message: '🔗 Ingrese el Connection String de PostgreSQL (opcional, enter para omitir):',
+      placeholder: 'postgresql://user:pass@localhost:5432/db'
+    });
+    if (isCancel(dbUrl)) return;
+  }
 
   const scope = await text({
     message: '🎯 Breve descripción o misión del proyecto:',
@@ -242,11 +296,123 @@ async function collectProjectContext(targetPath) {
   });
   if (isCancel(scope)) return;
 
+  const s = spinner();
+  s.start('Aplicando configuración determinista al proyecto...');
+
+  // 1. Modificar package.json
+  const pkgPath = path.join(process.cwd(), 'package.json');
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = fs.readJsonSync(pkgPath);
+      pkg.name = projectName.toLowerCase().replace(/\s+/g, '-');
+      pkg.description = scope;
+      fs.writeJsonSync(pkgPath, pkg, { spaces: 2 });
+    } catch(e) {}
+  }
+
+  // 2. Modificar README.md
+  const readmePath = path.join(process.cwd(), 'README.md');
+  if (fs.existsSync(readmePath)) {
+    try {
+      let readme = fs.readFileSync(readmePath, 'utf8');
+      readme = `# ${projectName}\n\n${scope}\n\n` + readme;
+      fs.writeFileSync(readmePath, readme, 'utf8');
+    } catch(e) {}
+  } else {
+    fs.writeFileSync(readmePath, `# ${projectName}\n\n${scope}\n`, 'utf8');
+  }
+
+  // 3. Modificar .env o .env.example
+  if (dbUrl) {
+    const envPath = fs.existsSync(path.join(process.cwd(), '.env')) 
+      ? path.join(process.cwd(), '.env') 
+      : path.join(process.cwd(), '.env.example');
+    try {
+      let envContent = '';
+      if (fs.existsSync(envPath)) envContent = fs.readFileSync(envPath, 'utf8');
+      
+      if (!envContent.includes('DATABASE_URL')) {
+        fs.appendFileSync(envPath, `\nDATABASE_URL="${dbUrl}"\n`);
+      } else {
+        envContent = envContent.replace(/DATABASE_URL=.*$/m, `DATABASE_URL="${dbUrl}"`);
+        fs.writeFileSync(envPath, envContent);
+      }
+    } catch(e) {}
+  }
+
+  // 4. Inyectar CSS
+  const possibleCssPaths = [
+    'src/app/globals.css', 'src/index.css', 'styles/globals.css', 'app/globals.css', 'globals.css'
+  ];
+  for (const cssFile of possibleCssPaths) {
+    const fullPath = path.join(process.cwd(), cssFile);
+    if (fs.existsSync(fullPath)) {
+      try {
+        let css = fs.readFileSync(fullPath, 'utf8');
+        if (css.includes(':root {')) {
+          if (css.includes('--primary:')) {
+            css = css.replace(/--primary:\s*[^;]+;/g, `--primary: ${colorPrimary};`);
+            css = css.replace(/--secondary:\s*[^;]+;/g, `--secondary: ${colorSecondary};`);
+          } else {
+            css = css.replace(':root {', `:root {\n  --primary: ${colorPrimary};\n  --secondary: ${colorSecondary};`);
+          }
+          fs.writeFileSync(fullPath, css);
+        }
+      } catch(e) {}
+    }
+  }
+
+  s.stop('Configuración de archivos aplicada.');
+
+  // 5. Selección Modular de Agentes
+  const agentsDir = path.join(targetPath, 'agents');
+  const rulesDir = path.join(targetPath, 'rules');
+  const targetRolesDir = fs.existsSync(rulesDir) ? rulesDir : (fs.existsSync(agentsDir) ? agentsDir : null);
+  
+  if (targetRolesDir) {
+    const agentFiles = fs.readdirSync(targetRolesDir).filter(f => f.endsWith('.md') && !f.includes('project-rules') && !f.includes('00-orchestrator'));
+    if (agentFiles.length > 0) {
+      const selectedAgents = await multiselect({
+        message: '🤖 ¿A quiénes quieres contratar para tu equipo de IA en este proyecto?',
+        options: agentFiles.map(f => ({ value: f, label: f.replace('.md', '').replace(/-/g, ' ') })),
+        required: false
+      });
+      
+      if (!isCancel(selectedAgents)) {
+        s.start('Ensamblando equipo...');
+        const agentsToKeep = new Set(selectedAgents);
+        let purgados = 0;
+        for (const file of agentFiles) {
+          if (!agentsToKeep.has(file)) {
+            fs.removeSync(path.join(targetRolesDir, file));
+            purgados++;
+          }
+        }
+        s.stop(`Roles ensamblados. Elementos innecesarios eliminados: ${purgados}`);
+      }
+    }
+  }
+
+  if (isPremium) {
+    s.start('Inyectando Skills Premium (Mock Mode, Security Center, etc.)...');
+    try {
+      await downloadTemplate(`github:${REPO_BASE}/masSkills/premium-nextjs-hono/skills`, {
+        dir: path.join(targetPath, 'skills'),
+        force: true,
+      });
+      s.stop('Skills Premium inyectados correctamente.');
+    } catch(err) {
+      s.stop('Aviso: No se pudieron descargar los Skills Premium desde GitHub (sólo disponibles cuando hagas push).');
+    }
+  }
+
   const contextContent = `# Contexto Inicial del Proyecto
 
+- **Proyecto:** ${projectName}
 - **Frontend:** ${frontend}
 - **Backend:** ${backend}
 - **Base de Datos:** ${database}
+- **Colores Principales:** Primary (${colorPrimary}), Secondary (${colorSecondary})
 
 ## Misión / Alcance
 ${scope}
