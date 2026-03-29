@@ -2,7 +2,7 @@
 import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { intro, outro, spinner, note, isCancel, cancel, select, multiselect, text } from '@clack/prompts';
+import { intro, outro, spinner, note, isCancel, cancel, select, multiselect, text, confirm } from '@clack/prompts';
 import pc from 'picocolors';
 
 // Obtenemos la ruta donde está instalado globalmente este paquete
@@ -10,7 +10,9 @@ import { downloadTemplate } from 'giget';
 import axios from 'axios';
 import AdmZip from 'adm-zip';
 
+import * as Minio from 'minio';
 import gradient from 'gradient-string';
+import { execSync } from 'child_process';
 import { startGitSyncWizard } from './git-sync.js';
 
 // Configuración de la nube de activos
@@ -31,6 +33,17 @@ const BANNER_ART = `
 
 const agkitGradient = gradient(['#4FACFE', '#00F2FE', '#007BFD']);
 const divider = pc.dim(' —————————————————————————————————————————————————————————————————');
+
+// Helper para renderizar un cuadrito de color en la terminal
+const renderColor = (hex) => {
+  if (!hex || !hex.startsWith('#')) return '';
+  const match = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!match) return '';
+  const r = parseInt(match[1], 16);
+  const g = parseInt(match[2], 16);
+  const b = parseInt(match[3], 16);
+  return `\x1b[48;2;${r};${g};${b}m  \x1b[0m`; // Dos espacios con el color de fondo
+};
 
 async function downloadAndExtract(url, targetDir, label = 'Descargando') {
   const s = spinner();
@@ -80,6 +93,7 @@ async function main() {
       options.push({ value: 'update', label: '🔄  Actualizar Multi-Agente', hint: 'Sincronizar .agent con la última versión.' });
       options.push({ value: 'skills', label: '🧩  Gestionar Skills', hint: 'Agregar habilidades adicionales.' });
       options.push({ value: 'context', label: '📝  Definir Contexto del Proyecto', hint: 'Configurar tecnologias del proyecto.' });
+      options.push({ value: 'contribute', label: '📤  Proponer Mejoras/Agentes', hint: 'Subir tus archivos modificados al Inbox del equipo.' });
     }
 
     options.push({ value: 'gitsync', label: '🛸  Sincronización Git (Wizard)', hint: 'Manejo seguro de ramas y conflictos' });
@@ -235,6 +249,8 @@ async function executeAction(action) {
     await collectProjectContext(targetAgentPath);
   } else if (action === 'gitsync') {
     await startGitSyncWizard();
+  } else if (action === 'contribute') {
+    await contributeToInbox();
   }
 }
 
@@ -250,19 +266,70 @@ async function collectProjectContext(targetPath) {
   });
   if (isCancel(projectName)) return;
 
-  const colorPrimary = await text({
-    message: '🎨 Color Primario o Brand Color (Hex o variable):',
-    placeholder: '#4FACFE',
-    initialValue: '#4FACFE'
+  // --- Selección de Color Primario ---
+  let colorPrimary;
+  const primaryChoice = await select({
+    message: '🎨 Selecciona el Color Primario (Brand Color):',
+    options: [
+      { value: '#4FACFE', label: `Azul Agkit ${renderColor('#4FACFE')}` },
+      { value: '#8B5CF6', label: `Viole-Pro ${renderColor('#8B5CF6')}` },
+      { value: '#10B981', label: `Vente-Verde ${renderColor('#10B981')}` },
+      { value: 'custom', label: '🛠️  HEX Personalizado...' }
+    ]
   });
-  if (isCancel(colorPrimary)) return;
+  if (isCancel(primaryChoice)) return;
 
-  const colorSecondary = await text({
-    message: '🎨 Color Secundario o Accent Color (Hex o variable):',
-    placeholder: '#00F2FE',
-    initialValue: '#00F2FE'
+  if (primaryChoice === 'custom') {
+    while (true) {
+      colorPrimary = await text({
+        message: 'Ingresa el código HEX (ej: #FF0000):',
+        placeholder: '#4FACFE',
+        validate(v) { if (!v.startsWith('#')) return 'Debe empezar con #'; }
+      });
+      if (isCancel(colorPrimary)) return;
+      note(`Vista previa del color: ${renderColor(colorPrimary)}`, 'Preview');
+      const ok = await confirm({ message: '¿Te gusta este color?', initialValue: true });
+      if (ok) break;
+    }
+  } else {
+    colorPrimary = primaryChoice;
+  }
+
+  // --- Selección de Color Secundario ---
+  let colorSecondary;
+  const secondaryChoice = await select({
+    message: '🎨 Selecciona el Color Secundario (Accent Color):',
+    options: [
+      { value: '#00F2FE', label: `Aqua Light ${renderColor('#00F2FE')}` },
+      { value: '#FACC15', label: `Gold Dust ${renderColor('#FACC15')}` },
+      { value: '#F43F5E', label: `Sunset Red ${renderColor('#F43F5E')}` },
+      { value: 'custom', label: '🛠️  HEX Personalizado...' }
+    ]
   });
-  if (isCancel(colorSecondary)) return;
+  if (isCancel(secondaryChoice)) return;
+
+  if (secondaryChoice === 'custom') {
+    while (true) {
+      colorSecondary = await text({
+        message: 'Ingresa el código HEX (ej: #00FF00):',
+        placeholder: '#00F2FE',
+        validate(v) { if (!v.startsWith('#')) return 'Debe empezar con #'; }
+      });
+      if (isCancel(colorSecondary)) return;
+      note(`Vista previa del color: ${renderColor(colorSecondary)}`, 'Preview');
+      const ok = await confirm({ message: '¿Te gusta este color?', initialValue: true });
+      if (ok) break;
+    }
+  } else {
+    colorSecondary = secondaryChoice;
+  }
+
+  note(
+    `Paleta Seleccionada:\n` +
+    `  Primario:   ${colorPrimary} ${renderColor(colorPrimary)}\n` +
+    `  Secundario: ${colorSecondary} ${renderColor(colorSecondary)}`,
+    'Wizard de Estilo'
+  );
 
   const isPremium = await select({
     message: '🚀 ¿Deseas usar la arquitectura preconfigurada Premium?',
@@ -464,7 +531,71 @@ Por favor, lee este archivo y ejecuta inmediatamente el flujo de trabajo @[/brai
 `;
 
   fs.writeFileSync(path.join(targetPath, 'PROJECT_CONTEXT.md'), contextContent, 'utf-8');
-  note('Archivo .agent/PROJECT_CONTEXT.md generado con éxito.\\n\\n🤖 Dile a tu agente de IA: "Lee el PROJECT_CONTEXT.md"', 'Contexto Guardado');
+  note('Archivo .agent/PROJECT_CONTEXT.md generado con éxito.\n\n🤖 Dile a tu agente de IA: "Lee el PROJECT_CONTEXT.md"', 'Contexto Guardado');
+}
+
+async function contributeToInbox() {
+  const minioClient = new Minio.Client({
+    endPoint: 's3.asisteme.ai',
+    useSSL: true, 
+    accessKey: 'asistemeadmin',
+    secretKey: 'wASJtWqrXzRahIS/vV8KL2gs+zTI6SY1'
+  });
+  const bucketName = 'asisteme-agents-skills';
+  
+  const targetAgentPath = path.join(process.cwd(), '.agent');
+  if (!fs.existsSync(targetAgentPath)) {
+    cancel('No se encontró la carpeta .agent para contribuir.');
+    return;
+  }
+
+  const findFiles = (dir, allFiles = []) => {
+     const files = fs.readdirSync(dir);
+     for (const file of files) {
+        if (file === 'node_modules' || file === '.git' || file === '.temp_skills') continue;
+        const fullPath = path.join(dir, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+           findFiles(fullPath, allFiles);
+        } else {
+           allFiles.push(path.relative(process.cwd(), fullPath));
+        }
+     }
+     return allFiles;
+  };
+
+  const allFiles = findFiles(targetAgentPath);
+  
+  const selectedFiles = await multiselect({
+     message: 'Selecciona los archivos que deseas proponer al equipo:',
+     options: allFiles.map(f => ({ value: f, label: f })),
+     required: true
+  });
+
+  if (isCancel(selectedFiles) || selectedFiles.length === 0) return;
+
+  const s = spinner();
+  s.start('Subiendo aportaciones a la nube...');
+  
+  let userName = 'comunidad';
+  try {
+     userName = execSync('git config user.name').toString().trim().replace(/\s+/g, '_');
+  } catch(e) {}
+  
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const remoteFolder = `inbox/${userName}_${timestamp}`;
+
+  try {
+     for (const file of selectedFiles) {
+        const localPath = path.join(process.cwd(), file);
+        const remotePath = `${remoteFolder}/${file}`.replace(/\\/g, '/');
+        await minioClient.fPutObject(bucketName, remotePath, localPath);
+     }
+     s.stop('¡Subida completada!');
+     outro(pc.green(`🚀 Se han enviado ${selectedFiles.length} archivos a revisión. ¡Gracias por contribuir, ${userName}!`));
+  } catch(err) {
+     s.stop('Error subiendo aportaciones.');
+     cancel(err.message);
+  }
 }
 
 main().catch((err) => {
