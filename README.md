@@ -1,44 +1,66 @@
-# Asisteme CLI
+# ⚡ Asisteme CLI - Antigravity Kit Orchestrator
 
-Plantilla global inicializadora de agentes de Antigravity para inyectar entornos `.agent` en repositorios y proyectos.
+> El puente definitivo entre tu código y la potencia de los Agentes Autónomos.
 
-## Instalación y Uso
+**Asisteme CLI** es una herramienta de orquestación diseñada para inyectar, actualizar y gestionar entornos de **Antigravity Kit** en cualquier proyecto. Permite a los desarrolladores configurar un ecosistema de agentes especialistas, reglas de limpio y habilidades dinámicas (skills) en cuestión de segundos.
 
-La forma más recomendada y rápida de utilizar este CLI es mediante `npx`, ejecutándolo en la raíz de cualquier repositorio o proyecto donde quieras instalar los agentes.
+---
 
-### Interfaz Interactiva (TUI)
+## 🚀 Instalación y Uso Rápido
 
-Para lanzar el asistente interactivo, que te dejará elegir entre instalar por primera vez o actualizar el entorno existente:
+No necesitas instalación previa si tienes Node.js. Ejecútalo directamente en la raíz de tu proyecto:
 
 ```bash
 npx @asistemeai/asisteme-cli
 ```
 
-*- También puedes instalarlo globalmente en tu máquina si lo prefieres (`npm install -g @asistemeai/asisteme-cli`) y usar simplemente el comando `asisteme-cli`.*
-
-### Iniciar o Actualizar Directamente
-
-Si ya tienes una carpeta `.agent` inicializada en el proyecto actual y quieres sobreescribirla de manera forzada con tu plantilla base más reciente, usa el argumento update:
-
-```bash
-npx @asistemeai/asisteme-cli update
-```
-
-> **Aviso de Seguridad:** Una vez que ejecutes una actualización de la plantilla base en un proyecto existente, es recomendable usar `git diff` y `git status` para comprobar si se ha sobreescrito alguna configuración particular que habías definido temporalmente en ese proyecto.
-
-## Funcionalidades
-- **Init:** Copia de forma rápida la carpeta `.agent`.
-- **Update:** Actualiza tu proyecto local para tener la versión más novedosa de tus directrices y herramientas de agentes Antigravity.
-- **Skills:** Explora y añade capacidades dinámicas a tu proyecto desde un catálogo unificado.
-- **Context:** Recaba el stack tecnológico y alcance de tu proyecto y prepara el terreno automáticamente para la IA (Brainstorming).
+### Comandos Directos
+| Comando | Descripción |
+| :--- | :--- |
+| `asisteme-cli init` | Inyecta el entorno `.agent` por primera vez. |
+| `asisteme-cli update` | Sincroniza `.agent` con la última versión de la nube. |
+| `asisteme-cli skills` | Menú interactivo para agregar habilidades adicionales. |
+| `asisteme-cli context` | Configura el stack (React, Hono, DB) y genera el `PROJECT_CONTEXT.md`. |
 
 ---
 
-## Créditos y Agradecimientos
+## 🏗️ Anatomía del Entorno `.agent`
 
-Este proyecto es una adaptación y extensión personalizada para el ecosistema de **Asisteme**, basada originalmente en el excelente trabajo de:
+Cuando inicializas el kit, se crea una carpeta `.agent/` con la siguiente estructura:
 
-- **Antigravity Kit** por [vudovn](https://github.com/vudovn/antigravity-kit)
+-   **/agents**: Personas especializadas (Frontend, Backend, Security, etc.) que guían a la IA.
+-   **/skills**: Conocimiento modular (Clean Code, Gemini API, MinIO, pnpm, etc.) que los agentes cargan bajo demanda.
+-   **/rules**: Normas globales (GEMINI.md) que dictan el comportamiento y tono del asistente.
+-   **/scripts**: Herramientas de validación automática (`checklist.py`) para asegurar la calidad del código.
+-   **ARCHITECTURE.md**: El mapa completo de capacidades de tu entorno local.
 
-Agradecemos a la comunidad por compartir herramientas que nos permiten construir flujos de IA más eficientes.
+---
 
+## 🧩 Nuevos Skills Disponibles (v1.2.7+)
+
+Hemos integrado las tecnologías más punteras para potenciar tus flujos agenticos:
+
+-   **Google Gemini Pro & Live API**: Soporte para streaming multimodal bidireccional y modelos 1.5+.
+-   **Vertex AI Expert**: Capacidades empresariales de Google Cloud (Content Caching, Batching).
+-   **MinIO Expert**: Gestión de almacenamiento de objetos compatible con S3 y Presigned URLs.
+-   **Package Managers (NPM/pnpm)**: Reglas estrictas de versionamiento, seguridad y optimización de workspaces.
+
+---
+
+## 🛡️ Flujo de Trabajo Recomendado
+
+1.  **Init**: Lanza `npx @asistemeai/asisteme-cli` y elige `init`.
+2.  **Context**: Ejecuta la opción `Define Contexto` para decirle a la IA qué tecnologías usas (Next.js, Tailwind, etc.).
+3.  **Brainstorm**: Pide a tu IA: *"Lee PROJECT_CONTEXT.md e inicia un @[/brainstorm]"*.
+4.  **Skills**: Si necesitas algo específico (ej. MinIO), usa `asisteme-cli skills` para inyectar el conocimiento necesario.
+5.  **Verify**: Antes de pushear, corre `python .agent/scripts/checklist.py .` para asegurar que todo esté perfecto.
+
+---
+
+## 🤝 Créditos y Comunidad
+
+Basado en el innovador **Antigravity Kit** de [vudovn](https://github.com/vudovn/antigravity-kit). 
+Extendido y evolucionado por el equipo de **Asisteme** para flujos de IA de alto rendimiento.
+
+---
+© 2026 Asisteme AI.
